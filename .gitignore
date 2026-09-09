@@ -1,0 +1,23 @@
+# Material das aulas — PDFs originais (~350 MB, ficam só na máquina)
+Anatomia/
+Bioquímica/
+Grandes Grupos/
+Histologia/
+Pequenos grupos/
+
+# Dumps intermediários do montar.py
+build/extraido/
+
+# Gerados a partir dos PDFs — carregam o texto e as figuras das aulas,
+# então ficam fora do GitHub. Rode `python build/montar.py` para recriá-los.
+src/dados-*.js
+site.html
+
+# Ambiente Python
+venv/
+__pycache__/
+
+.DS_Store
+
+# Configuração local do Claude Code
+.claude/settings.local.json
