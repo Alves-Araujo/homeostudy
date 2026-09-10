@@ -272,6 +272,8 @@ function conteudoAula(a){
     (s.b || []).forEach(b => {
       if(b.t === 'p') html += `<p>${esc(b.x)}</p>`;
       else if(b.t === 'ul') html += `<ul>${b.x.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      else if(b.t === 'rot') html += `<div class="rotulos"><span class="rot-lab">Do diagrama</span>`
+        + b.x.map(i => `<span class="rot">${esc(i)}</span>`).join('') + `</div>`;
     });
     if(s.h) idx++;
   });
@@ -350,9 +352,10 @@ function viewMapa(){
       </div>
     </section>
     <div class="wrap mm-page">
-      <div class="mm-mapa">
+      <div class="mm-mapa" id="mmMapa">
+        <svg class="mm-svg" id="mmSvg" aria-hidden="true"></svg>
         <div class="mm-col">${esq.map(r => ramo(r, 'esq')).join('')}</div>
-        <div class="mm-centro"><b>${esc(mp.centro)}</b><span>${esc(mp.sub)}</span></div>
+        <div class="mm-centro" id="mmCentro"><b>${esc(mp.centro)}</b><span>${esc(mp.sub)}</span></div>
         <div class="mm-col">${dir.map(r => ramo(r, 'dir')).join('')}</div>
       </div>
       <div class="mm-dica" id="mmDica" hidden></div>
@@ -360,9 +363,42 @@ function viewMapa(){
   </div>`;
 }
 
+/* Traços fixos em CSS não funcionam aqui: cada ramo está a uma distância
+   diferente do centro, então o risco é o traço morrer no vazio. Medindo as
+   posições depois do layout dá para ligar cada ramo ao centro de verdade. */
+function desenharLinhas(){
+  const mapa = document.getElementById('mmMapa'), svg = document.getElementById('mmSvg');
+  const centro = document.getElementById('mmCentro');
+  if(!mapa || !svg || !centro) return;
+  const base = mapa.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${base.width} ${base.height}`);
+  svg.setAttribute('width', base.width);
+  svg.setAttribute('height', base.height);
+
+  // empilhado no celular: as colunas ficam uma sobre a outra e a linha mentiria
+  if(getComputedStyle(mapa).gridTemplateColumns.split(' ').length < 3){ svg.innerHTML = ''; return; }
+
+  const c = centro.getBoundingClientRect();
+  const cx = c.left + c.width / 2 - base.left, cy = c.top + c.height / 2 - base.top;
+
+  svg.innerHTML = [...mapa.querySelectorAll('.mm-n1')].map(n => {
+    const r = n.getBoundingClientRect();
+    const dir = r.left + r.width / 2 > cx;
+    const x1 = (dir ? r.left : r.right) - base.left;
+    const y1 = r.top + r.height / 2 - base.top;
+    const x0 = dir ? cx + c.width / 2 : cx - c.width / 2;
+    const meio = (x0 + x1) / 2;
+    return `<path d="M${x0} ${cy} C${meio} ${cy} ${meio} ${y1} ${x1} ${y1}"/>`;
+  }).join('');
+}
+
 /* A explicação aparece num balão único que segue o tópico apontado — um
    balão por nó encheria a página de caixas escondidas. */
 function ligarMapa(){
+  desenharLinhas();
+  addEventListener('resize', desenharLinhas);
+  // as fontes do Google chegam depois e mudam a largura das pílulas
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(desenharLinhas);
   const balao = document.getElementById('mmDica');
   if(!balao) return;
   const mostrar = el => {
@@ -627,6 +663,7 @@ function montarIndice(){
       (s.b || []).forEach(b => {
         if(b.t === 'p') partes.push(b.x);
         else if(b.t === 'ul') b.x.forEach(i => partes.push('• ' + i));
+        else if(b.t === 'rot') partes.push(b.x.join(' · '));
       });
       const corpo = partes.join('\n');
       if(corpo.length < 30) return;

@@ -96,6 +96,10 @@ ENUNCIADO = re.compile(r'^Quest(ão|ao)\s*\d+', re.I)
 # começa em minúscula: é continuação da linha anterior, não frase nova
 CONTINUA = re.compile(r'^[a-zàáâãéêíóôõúç(]')
 
+# Emendar palavra partida ("morfofuncio" + "nal") foi tentado e revertido: a
+# regra acertava 2 casos e criava 8 erros novos ("ácidos não" → "ácidosnão"),
+# porque sem dicionário não dá para distinguir o resto de uma palavra de uma
+# palavra curta de verdade. Junta-se sempre com espaço.
 
 def parece_titulo_em_caixa_alta(txt):
     """`str.isupper()` mente para fórmulas e gabaritos.
@@ -197,7 +201,7 @@ def eh_lista_de_exercicios(secoes):
     enunciados = alternativas = 0
     for sec in secoes:
         for bl in sec['b']:
-            for txt in (bl['x'] if bl['t'] == 'ul' else [bl['x']]):
+            for txt in (bl['x'] if bl['t'] in ('ul', 'rot') else [bl['x']]):
                 if ENUNCIADO.match(txt):
                     enunciados += 1
                 if ALTERNATIVA.match(txt):
@@ -274,6 +278,8 @@ def secoes_da_pagina(pg):
         juntas.append(sec)
     secoes = juntas
 
+    secoes = agrupar_rotulos(secoes)
+
     # remove seções repetidas na mesma página (exports duplicam títulos)
     limpas, vistos = [], set()
     for s in secoes:
@@ -284,6 +290,59 @@ def secoes_da_pagina(pg):
         vistos.add(chave)
         limpas.append(s)
     return limpas
+
+
+ROTULO_MAX = 30      # um rótulo de diagrama é curto por natureza
+
+
+def agrupar_rotulos(secoes):
+    """Texto solto de diagrama vira um grupo de rótulos, não título nem frase.
+
+    Os slides do Canva e do Gamma espalham palavras avulsas ("Tecido",
+    "Órgão", "= Lactose") em caixas separadas. Cada uma virava um título sem
+    conteúdo embaixo, ou um parágrafo de duas palavras — a página ficava cheia
+    de cabeçalhos vazios. Juntar essas palavras num só bloco `rot` mostra o
+    que o diagrama dizia, em vez de fingir que era prosa.
+    """
+    # 1) sequências de títulos sem corpo nenhum
+    saida, corrida = [], []
+
+    def fecha():
+        if not corrida:
+            return
+        if len(corrida) >= 2:
+            saida.append({'h': None, 'b': [{'t': 'rot', 'x': corrida[:]}]})
+        # um título sozinho e sem corpo não diz nada: some
+        corrida.clear()
+
+    for sec in secoes:
+        if sec['h'] and not sec['b']:
+            corrida.append(sec['h'])
+            continue
+        fecha()
+        saida.append(sec)
+    fecha()
+
+    # 2) dentro de cada seção, corridas de parágrafos muito curtos
+    for sec in saida:
+        novos, curtos = [], []
+
+        def fecha_curtos():
+            if len(curtos) >= 3:
+                novos.append({'t': 'rot', 'x': curtos[:]})
+            else:
+                novos.extend({'t': 'p', 'x': c} for c in curtos)
+            curtos.clear()
+
+        for bl in sec['b']:
+            if bl['t'] == 'p' and len(bl['x']) <= ROTULO_MAX:
+                curtos.append(bl['x'])
+                continue
+            fecha_curtos()
+            novos.append(bl)
+        fecha_curtos()
+        sec['b'] = novos
+    return saida
 
 
 # ─── imagens ────────────────────────────────────────────────────────────
@@ -454,8 +513,11 @@ def main():
                     if sec['h'] and n not in titulos_pag:
                         titulos_pag[n] = sec['h']
 
+            # um título sem nada embaixo só polui a página, venha de onde vier
+            secoes = [s for s in secoes if s['b']]
+
             if not secoes and nome in transcricoes:
-                secoes = [dict(sec) for sec in transcricoes[nome]]
+                secoes = [dict(sec) for sec in transcricoes[nome] if sec['b']]
                 total = sum(len(b.get('x', '')) for sec in secoes for b in sec['b'])
                 print(f'   ↳ texto de {nome} veio da transcrição .md')
 
