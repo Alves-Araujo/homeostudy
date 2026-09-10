@@ -105,6 +105,20 @@ function ir(patch){ location.hash = hashDe({...state, ...patch}); }
 addEventListener('hashchange', () => { lerHash(); render(); });
 
 document.addEventListener('click', e => {
+  // Índice lateral: rolar até a seção SEM mexer no hash. O hash é a rota do
+  // site, então deixar o link "#s3" passar mandava o roteador para o início.
+  const t = e.target.closest('[data-toc]');
+  if(t){
+    e.preventDefault();
+    const alvo = document.getElementById(t.dataset.toc);
+    if(alvo){
+      const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      alvo.scrollIntoView({behavior: suave ? 'smooth' : 'auto', block:'start'});
+      main.querySelectorAll('[data-toc]').forEach(l => l.classList.toggle('on', l === t));
+    }
+    return;
+  }
+
   const b = e.target.closest('[data-ir]');
   if(!b) return;
   e.preventDefault();

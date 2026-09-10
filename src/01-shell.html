@@ -176,7 +176,9 @@ button{font:inherit; color:inherit; background:none; border:none; cursor:pointer
 .toc a.on{color:var(--rosa); border-left-color:var(--rosa); background:var(--rosa-wash)}
 @media (max-width:999px){.toc{display:none}}
 
-.doc h2.block-h{font-family:var(--display); font-weight:800; font-size:21px; letter-spacing:-.02em; margin:36px 0 12px; padding-bottom:8px; border-bottom:1.5px solid var(--line); display:flex; align-items:baseline; gap:10px}
+/* o cabeçalho fica fixo por cima: sem esta margem o título rolado para
+   dentro da tela para escondido atrás dele */
+.doc h2.block-h{scroll-margin-top:82px; font-family:var(--display); font-weight:800; font-size:21px; letter-spacing:-.02em; margin:36px 0 12px; padding-bottom:8px; border-bottom:1.5px solid var(--line); display:flex; align-items:baseline; gap:10px}
 .doc h2.block-h:first-child{margin-top:14px}
 .doc .pag{font-family:var(--mono); font-size:11px; font-weight:500; color:var(--rosa); letter-spacing:0; flex:none}
 .doc p{margin:0 0 12px; max-width:70ch; color:var(--ink-2)}
