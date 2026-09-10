@@ -62,6 +62,19 @@ button{font:inherit; color:inherit; background:none; border:none; cursor:pointer
 .top-in{display:flex; align-items:center; gap:16px; height:62px}
 .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink); flex:none}
 .brand-mark{width:26px; height:26px; flex:none}
+/* anel de progresso do banco de questões, em volta do símbolo */
+.brand-ring{transition:stroke-dasharray .7s cubic-bezier(.22,.9,.28,1)}
+.brand{position:relative}
+.brand-tip{position:absolute; left:0; top:calc(100% + 8px); white-space:nowrap;
+  background:var(--noite); color:var(--noite-ink); font-family:var(--mono); font-size:10.5px;
+  letter-spacing:.06em; padding:6px 10px; border-radius:8px; box-shadow:var(--shadow-lift);
+  opacity:0; pointer-events:none; transition:opacity .18s; z-index:50}
+.brand:hover .brand-tip, .brand:focus-visible .brand-tip{opacity:1}
+
+/* barra de leitura: quanto da página já foi percorrido */
+.lendo{position:absolute; left:0; right:0; bottom:-1px; height:3px; background:transparent; overflow:hidden}
+.lendo i{display:block; height:100%; width:0; border-radius:0 3px 3px 0;
+  background:linear-gradient(90deg,var(--rosa),var(--azul)); transition:width .12s linear}
 .brand-name{font-family:var(--display); font-weight:800; font-size:19px; letter-spacing:-.03em}
 .brand-name em{font-style:normal; color:var(--rosa)}
 .nav{display:flex; gap:3px; overflow-x:auto; scrollbar-width:none; margin-left:auto; padding:4px 0}
@@ -342,15 +355,21 @@ footer{border-top:1px solid var(--line); background:var(--surface); margin-top:1
     <a class="brand" href="#inicio">
       <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
         <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.6" opacity=".22"/>
+        <!-- anel de progresso: quanto do banco de questões já foi respondido -->
+        <circle class="brand-ring" id="brandRing" cx="16" cy="16" r="14" stroke="#E23C7C"
+                stroke-width="2.4" stroke-linecap="round" pathLength="100"
+                stroke-dasharray="0 100" transform="rotate(-90 16 16)"/>
         <path d="M3 16h5.4l2.3-7.2 3.4 14.6 3-11 2.2 6.1 1.7-2.5H29" stroke="#E23C7C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <span class="brand-name">Homeo<em>study</em></span>
+      <span class="brand-tip" id="brandTip"></span>
     </a>
     <nav class="nav" id="nav" aria-label="Matérias"></nav>
     <button class="theme-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
     </button>
   </div>
+  <div class="lendo"><i id="lendoBar"></i></div>
 </header>
 
 <main id="main"></main>
@@ -1857,6 +1876,43 @@ let prog = {};
 try { prog = JSON.parse(localStorage.getItem(CHAVE) || '{}'); } catch (e) { prog = {}; }
 function salvar(){ try { localStorage.setItem(CHAVE, JSON.stringify(prog)); } catch (e) {} }
 
+/* ─── progresso geral, no anel em volta do símbolo ───────────────────── */
+let TOTAL_Q = 0;
+function totalQuestoes(){
+  if(TOTAL_Q) return TOTAL_Q;
+  Object.values(window.EX || {}).forEach(e => {
+    TOTAL_Q += (e.material || []).length + (e.internet || []).length + (e.ia || []).length;
+  });
+  Object.values(window.SIM || {}).forEach(a => { TOTAL_Q += a.length; });
+  return TOTAL_Q;
+}
+
+function pintarAnel(){
+  const anel = document.getElementById('brandRing'), tip = document.getElementById('brandTip');
+  if(!anel) return;
+  const total = totalQuestoes();
+  // uma questão só conta uma vez; "Recomeçar" zera a chave e o anel volta
+  const feitas = Object.values(prog).reduce((s, p) => s + (p.feitas || 0), 0);
+  const certas = Object.values(prog).reduce((s, p) => s + (p.certas || 0), 0);
+  const pct = total ? Math.min(100, feitas / total * 100) : 0;
+  anel.setAttribute('stroke-dasharray', pct.toFixed(1) + ' 100');
+  if(tip){
+    tip.textContent = feitas
+      ? `${feitas} de ${total} questões · ${certas} cert${certas === 1 ? 'a' : 'as'}`
+      : `${total} questões esperando você`;
+  }
+}
+
+/* ─── barra de leitura sob o cabeçalho ───────────────────────────────── */
+function pintarLeitura(){
+  const bar = document.getElementById('lendoBar');
+  if(!bar) return;
+  const alto = document.documentElement.scrollHeight - innerHeight;
+  bar.style.width = (alto > 40 ? Math.min(100, scrollY / alto * 100) : 0) + '%';
+}
+addEventListener('scroll', pintarLeitura, {passive:true});
+addEventListener('resize', pintarLeitura);
+
 /* ─── tema ───────────────────────────────────────────────────────────── */
 const root = document.documentElement;
 document.getElementById('themeBtn').addEventListener('click', () => {
@@ -2343,6 +2399,7 @@ function pontuar(chave, certo){
   const p = prog[chave] = prog[chave] || {certas:0, feitas:0};
   p.feitas++; if(certo) p.certas++;
   salvar();
+  pintarAnel();
   const barra = document.querySelector(`[data-score="${chave}"]`);
   if(barra){
     barra.querySelector('[data-sc-c]').textContent = p.certas;
@@ -2708,6 +2765,8 @@ function render(){
 
   scrollTo({top:0, behavior:'instant'});
   tracado();
+  pintarAnel();
+  pintarLeitura();
 
   const alvos = main.querySelectorAll('.block-h');
   const links = main.querySelectorAll('[data-toc]');
