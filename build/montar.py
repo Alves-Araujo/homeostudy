@@ -54,10 +54,10 @@ TITULOS = {
  'regulacao-da-temperatura-corporal':
                                  ('Hipotálamo, Vasos e Pele na Regulação da Temperatura', 'Laboratório morfofuncional'),
  'sistema-respiratorio':         ('Histologia do Sistema Respiratório', 'Laboratório morfofuncional'),
- 'fisiologia-digestiva':         ('Fisiologia Digestiva e Metabolismo Integrado', 'Aula do Prof. Ronaldo Baganha'),
+ 'fisiologia-digestiva':         ('Fisiologia Digestiva e Metabolismo Integrado', 'Aula expositiva'),
  'sistema-cardiovascular':       ('Sistema Cardiovascular', 'Integração morfofuncional'),
  'sistema-endocrino':            ('Sistema Endócrino', 'Integração morfofuncional'),
- 'sistema-endocrino-e-eixos-hormonais': ('Sistema Endócrino e Eixos Hormonais', 'Aula do Prof. Ronaldo Baganha'),
+ 'sistema-endocrino-e-eixos-hormonais': ('Sistema Endócrino e Eixos Hormonais', 'Aula expositiva'),
  'homeostase':                   ('Integração Estrutural e Homeostase', 'Tecidos epitelial, conjuntivo e glandular'),
  'Red and Beige Modern Medical Professional Cardiovascular Presentation':
                                  ('Anatomia e Fisiologia do Coração e Vasos', 'Cardiovascular · Tema 1'),
@@ -66,7 +66,7 @@ TITULOS = {
                                  ('Mecanismos de Ação Hormonal e Retroalimentação', 'Sistema endócrino · Tema 2'),
  'Funções do organismo':         ('Funções do Organismo e Homeostase', 'Homeostase · Tema 1'),
  'Homeostase e Integração dos Sistemas': ('Homeostase e Integração dos Sistemas', 'Homeostase · fechamento'),
- 'Homeostase e Integração dos Sistemas (1)': ('Homeostase e Integração dos Sistemas', 'Aula do Prof. Ronaldo Baganha'),
+ 'Homeostase e Integração dos Sistemas (1)': ('Homeostase e Integração dos Sistemas', 'Aula expositiva'),
  'UC 4_260908_172832':           ('Anotações da UC IV', 'Fotos de aula digitalizadas'),
  'Siatema Cardiovascular':       ('Histologia Cardiovascular', 'Laboratório morfofuncional'),
  'Atividade Bioquímica - Paola': ('Atividade de pH e Equilíbrio Ácido-Base', 'Lista de exercícios da disciplina'),
@@ -77,6 +77,60 @@ TITULOS = {
  'Sistema Cardiovascular (3)':   ('Sistema Cardiovascular', 'PDF incompleto'),
  'Sistemas respiratório, renal e digestório (4)': ('Sistemas Respiratório, Renal e Digestório', 'PDF incompleto'),
 }
+
+
+# ─── privacidade ────────────────────────────────────────────────────────
+# Os slides trazem os créditos de quem apresentou. O site é público, então os
+# nomes saem — tanto os das capas quanto os das páginas de encerramento.
+# Referência bibliográfica (autor de artigo citado) NÃO entra aqui: é citação
+# acadêmica, não crédito de quem fez o trabalho.
+NOMES = [
+    'Ronaldo Baganha', 'Miriam Engelman', 'Ana Clara Leme',
+    'Maria Luíza Vitale', 'Maria Luiza Vitale', 'Jean Carlos',
+    'Ive Andrade', 'Breno Amaral', 'Manuela Castro', 'Paola Santos',
+    'Henry Lima', 'Letícia Rios', 'Lucas Leal', 'Paola', 'Bruna',
+]
+# rótulo que anuncia os créditos ("Discentes:", "Prof. Dr.")
+CREDITO = re.compile(
+    r'\b(discentes?|docentes?|integrantes?|alunas?|alunos?|componentes do grupo|'
+    r'orientador[ae]?s?|apresentado por|elaborado por|professor[ae]?s?|profa?\.|dr[ª ae]?\.?)\b[:\s]*',
+    re.I)
+NOME_RE = re.compile('|'.join(re.escape(n) for n in
+                              sorted(NOMES, key=len, reverse=True)), re.I)
+
+
+def sem_nomes(txt):
+    """Tira nomes e rótulos de crédito. Devolve '' se não sobrar conteúdo."""
+    limpo = NOME_RE.sub('', txt)
+    if limpo != txt:
+        limpo = CREDITO.sub('', limpo)
+    # sobrou só pontuação, conectivo ou lixo de separador?
+    resto = re.sub(r'[\s,;:()\-–—.&]|\be\b', '', limpo)
+    return '' if len(resto) < 3 else re.sub(r'\s{2,}', ' ', limpo).strip(' ,;:-–—')
+
+
+def limpar_secoes(secoes):
+    """Passa o `sem_nomes` por títulos, parágrafos, listas e rótulos."""
+    saida = []
+    for sec in secoes:
+        h = sem_nomes(sec['h']) if sec['h'] else None
+        blocos = []
+        for bl in sec['b']:
+            if bl['t'] == 'p':
+                t = sem_nomes(bl['x'])
+                if t:
+                    blocos.append({'t': 'p', 'x': t})
+            else:
+                itens = [i for i in (sem_nomes(x) for x in bl['x']) if i]
+                if itens:
+                    blocos.append({'t': bl['t'], 'x': itens})
+        if h or blocos:
+            saida.append({**sec, 'h': h, 'b': blocos})
+    return saida
+
+
+# o nome do arquivo levava um nome próprio para dentro da URL
+SLUG_LIMPO = {'atividade-bioquimica---paola': 'atividade-ph-equilibrio-acido-base'}
 
 
 def slug(s):
@@ -502,6 +556,7 @@ def main():
             while sl in usados:
                 sl = f'{base}-{k}'
                 k += 1
+            sl = SLUG_LIMPO.get(sl, sl)
             usados.add(sl)
 
             secoes, titulos_pag, total = [], {}, 0
@@ -515,9 +570,11 @@ def main():
 
             # um título sem nada embaixo só polui a página, venha de onde vier
             secoes = [s for s in secoes if s['b']]
+            secoes = limpar_secoes(secoes)
 
             if not secoes and nome in transcricoes:
-                secoes = [dict(sec) for sec in transcricoes[nome] if sec['b']]
+                # a transcrição escrita à mão também traz nome de professor
+                secoes = limpar_secoes([dict(sec) for sec in transcricoes[nome] if sec['b']])
                 total = sum(len(b.get('x', '')) for sec in secoes for b in sec['b'])
                 print(f'   ↳ texto de {nome} veio da transcrição .md')
 
@@ -529,7 +586,9 @@ def main():
             incompleto = tema == 'PDF incompleto' and not secoes
             if secoes and tema == 'PDF incompleto':
                 tema = 'Transcrição do grupo'
-            aula = {'slug': sl, 'titulo': titulo, 'arquivo': nome + '.pdf', 'tema': tema,
+            # o nome do PDF também carrega nome de gente
+            arquivo = sem_nomes(nome) or titulo
+            aula = {'slug': sl, 'titulo': titulo, 'arquivo': arquivo + '.pdf', 'tema': tema,
                     'paginas': doc.page_count, 'secoes': secoes, 'figuras': figs,
                     'incompleto': incompleto}
             if eh_lista_de_exercicios(secoes):

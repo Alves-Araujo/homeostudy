@@ -88,8 +88,8 @@ EX['grandes-grupos/sistema-endocrino-e-eixos-hormonais'] = {fontes:'endocrino',
 
 /* ─── Bioquímica ───────────────────────────────────────────────────── */
 
-EX['bioquimica/atividade-bioquimica---paola'] = {fontes:'acidobase',
- avisoMaterial:'Estas são as 10 questões exatamente como estão no PDF <b>Atividade Bioquímica - Paola</b>. O arquivo não trazia gabarito — as respostas e os comentários abaixo são a resolução do site. Confira com a professora antes de usar como gabarito oficial.',
+EX['bioquimica/atividade-ph-equilibrio-acido-base'] = {fontes:'acidobase',
+ avisoMaterial:'Estas são as 10 questões exatamente como estão na <b>lista de exercícios da disciplina</b>. O arquivo não trazia gabarito — as respostas e os comentários abaixo são a resolução do site. Confira com a professora antes de usar como gabarito oficial.',
  material:[
   {t:'me', f:'Questão 1 do material', e:'Durante uma aula prática de Bioquímica, um estudante recebe uma solução de ácido clorídrico (HCl) com concentração de 1,0 × 10⁻³ mol/L. Considerando que o HCl é um ácido forte e se dissocia completamente em solução aquosa, o pH aproximado da solução é:', a:['1','2','3','4','11'],
    ok:2, d:'Ácido forte dissocia 100%: [H⁺] = a própria concentração. E pH = −log[H⁺].', w:'Como o HCl dissocia completamente, [H⁺] = 1,0 × 10⁻³ mol/L. pH = −log(10⁻³) = <b>3</b>. O atalho: para uma potência de 10, o pH é simplesmente o <b>expoente sem o sinal negativo</b>.'},
