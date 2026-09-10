@@ -46,6 +46,7 @@ function hashDe(s){
   if(s.v === 'perguntar') return '#perguntar';
   if(s.v === 'materia') return '#m/' + s.m;
   if(s.v === 'simulado') return '#sim/' + s.m;
+  if(s.v === 'mapa') return '#mapa/' + s.m;
   return '#a/' + s.m + '/' + s.a + '/' + s.aba + (s.aba === 'exercicios' ? '/' + s.g : '');
 }
 function lerHash(){
@@ -54,6 +55,7 @@ function lerHash(){
   if(p[0] === 'perguntar'){ state = {...state, v:'perguntar'}; return; }
   if(p[0] === 'm' && MATS.includes(p[1])){ state = {v:'materia', m:p[1], a:null, aba:'conteudo', g:'material'}; return; }
   if(p[0] === 'sim' && MATS.includes(p[1])){ state = {v:'simulado', m:p[1], a:null, aba:'conteudo', g:'material'}; return; }
+  if(p[0] === 'mapa' && MATS.includes(p[1])){ state = {v:'mapa', m:p[1], a:null, aba:'conteudo', g:'material'}; return; }
   if(p[0] === 'a' && MATS.includes(p[1]) && aulaDe(p[1], p[2])){
     const aba = ABAS.some(x => x.id === p[3]) ? p[3] : 'conteudo';
     const g = GRUPOS.some(x => x.id === p[4]) ? p[4] : 'material';
@@ -159,6 +161,7 @@ function viewMateria(){
     <section class="wrap sec">
       <div class="sec-head"><h2>Aulas</h2><span class="kicker">${ok.length} disponíveis</span></div>
       <div class="aulas stagger">${ok.map(linha).join('')}</div>
+      ${cartaoMapa()}
       ${cartaoSimulado()}
       ${ruins.length ? `
         <div class="sec-head" style="margin-top:38px"><h2 style="font-size:20px">PDFs incompletos</h2><span class="kicker">${ruins.length} arquivos</span></div>
@@ -233,6 +236,19 @@ function viewAula(){
 
 /* ─── conteúdo da aula ───────────────────────────────────────────────── */
 function conteudoAula(a){
+  // Quando o próprio PDF é a lista de questões, mostrá-lo como "conteúdo"
+  // só repetia a prova picotada em títulos e parágrafos soltos.
+  if(a.prova){
+    return `<div class="wrap" style="padding-block:34px 52px">
+      <div class="empty">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><path d="M16 3h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><rect x="9" y="1.6" width="6" height="3.6" rx="1"/></svg>
+        <h3>Este PDF é a própria lista de exercícios</h3>
+        <p>Não há texto de estudo para mostrar aqui: o arquivo tem ${a.paginas} páginas de questões. Elas estão na aba <b>Exercícios</b>, já separadas uma a uma, com dica, gabarito e correção.</p>
+        <button class="btn pri" data-ir='${JSON.stringify({v:'aula', m:state.m, a:a.slug, aba:'exercicios', g:'material'})}' style="margin-top:8px">Ir para os exercícios</button>
+      </div>
+    </div>`;
+  }
+
   const porPag = {};
   a.figuras.forEach(f => { (porPag[f.pag] = porPag[f.pag] || []).push(f); });
 
@@ -288,6 +304,83 @@ function conteudoAula(a){
       ${toc.map(t => `<a href="#s${t.i}" data-toc="s${t.i}" title="${esc(t.h)}">${esc(t.h)}</a>`).join('')}
     </aside>` : ''}
   </div>`;
+}
+
+/* ═══ MAPA MENTAL DA MATÉRIA ══════════════════════════════════════════ */
+const mapaDe = m => (window.MAPA || {})[m] || null;
+
+function cartaoMapa(){
+  const mp = mapaDe(state.m);
+  if(!mp) return '';
+  const n = mp.ramos.reduce((s, r) => s + 1 + r.filhos.length, 0);
+  return `<button class="simcard mapcard" data-ir='${JSON.stringify({v:'mapa', m:state.m})}'>
+    <span class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="5.5" r="2.2"/><circle cx="19.5" cy="5.5" r="2.2"/><circle cx="4.5" cy="18.5" r="2.2"/><circle cx="19.5" cy="18.5" r="2.2"/><path d="M10.2 10.4 6.2 7.1M13.8 10.4l4-3.3M10.2 13.6l-4 3.3M13.8 13.6l4 3.3"/></svg></span>
+    <span class="tx">
+      <h3>Mapa mental de ${esc(MATERIAL[state.m].nome)}</h3>
+      <p>Os ${n} conceitos da matéria numa página só. Passe o mouse em qualquer um para ler a explicação.</p>
+    </span>
+    <span class="go">Ver o mapa <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </button>`;
+}
+
+/* Metade dos ramos de cada lado do centro, como no mapa desenhado à mão:
+   a coluna da esquerda cresce para a esquerda, a da direita para a direita. */
+function viewMapa(){
+  const d = MATERIAL[state.m], mp = mapaDe(state.m);
+  if(!mp) return viewMateria();
+
+  const no = (x, cls) => `<span class="${cls}" data-exp="${esc(x.d)}" tabindex="0">${esc(x.t)}</span>`;
+  const ramo = (r, lado) => `<div class="mm-ramo mm-${lado}">
+      ${no(r, 'mm-n1')}
+      <div class="mm-filhos">${r.filhos.map(f => no(f, 'mm-n2')).join('')}</div>
+    </div>`;
+
+  const meio = Math.ceil(mp.ramos.length / 2);
+  const esq = mp.ramos.slice(0, meio), dir = mp.ramos.slice(meio);
+
+  return `<div class="view">
+    <section class="mhead"><span class="mhead-glow"></span>
+      <div class="wrap mhead-in" style="padding-bottom:30px">
+        <div class="crumb">
+          <button data-ir='{"v":"inicio"}'>Início</button> <span>›</span>
+          <button data-ir='${JSON.stringify({v:'materia', m:state.m})}'>${esc(d.nome)}</button> <span>›</span> <span>Mapa mental</span>
+        </div>
+        <h1>Mapa mental de ${esc(d.nome)}</h1>
+        <p>Toda a matéria numa página. Passe o mouse (ou toque, no celular) em qualquer tópico para ver uma explicação curta.</p>
+      </div>
+    </section>
+    <div class="wrap mm-page">
+      <div class="mm-mapa">
+        <div class="mm-col">${esq.map(r => ramo(r, 'esq')).join('')}</div>
+        <div class="mm-centro"><b>${esc(mp.centro)}</b><span>${esc(mp.sub)}</span></div>
+        <div class="mm-col">${dir.map(r => ramo(r, 'dir')).join('')}</div>
+      </div>
+      <div class="mm-dica" id="mmDica" hidden></div>
+    </div>
+  </div>`;
+}
+
+/* A explicação aparece num balão único que segue o tópico apontado — um
+   balão por nó encheria a página de caixas escondidas. */
+function ligarMapa(){
+  const balao = document.getElementById('mmDica');
+  if(!balao) return;
+  const mostrar = el => {
+    balao.textContent = el.dataset.exp;
+    balao.hidden = false;
+    const r = el.getBoundingClientRect(), pai = balao.offsetParent.getBoundingClientRect();
+    const meio = r.left + r.width / 2 - pai.left;
+    balao.style.left = Math.max(8, Math.min(meio - balao.offsetWidth / 2, pai.width - balao.offsetWidth - 8)) + 'px';
+    balao.style.top = (r.bottom - pai.top + 10) + 'px';
+  };
+  const esconder = () => { balao.hidden = true; };
+  document.querySelectorAll('[data-exp]').forEach(el => {
+    el.addEventListener('mouseenter', () => mostrar(el));
+    el.addEventListener('focus', () => mostrar(el));
+    el.addEventListener('mouseleave', esconder);
+    el.addEventListener('blur', esconder);
+    el.addEventListener('click', () => balao.hidden ? mostrar(el) : esconder());
+  });
 }
 
 /* ─── exercícios ─────────────────────────────────────────────────────── */
@@ -498,61 +591,170 @@ function abrirFig(i){
   addEventListener('keydown', fechar);
 }
 
-/* ═══ TIRA-DÚVIDAS ════════════════════════════════════════════════════ */
-let sampleNS, tentado = false, escopo = null, historico = [];
+/* ═══ TIRA-DÚVIDAS — busca no próprio conteúdo do site ════════════════
+   Sem IA nenhuma. O site já tem o texto de todas as aulas: a pergunta vira
+   um conjunto de palavras, cada trecho do material recebe uma nota por
+   quantas dessas palavras contém, e os melhores trechos voltam como
+   resposta, com o caminho para a aula de onde saíram.
+   ══════════════════════════════════════════════════════════════════════ */
+let escopo = 'tudo', historico = [], INDICE = null;
 
 const SUGESTOES = [
-  'Explica esse conteúdo como se eu tivesse 10 anos, e depois do jeito que cai na prova.',
-  'Faz um resumo dos 10 pontos mais importantes desta aula.',
-  'Me faz 3 questões difíceis sobre isso e corrige depois que eu responder.',
-  'Quais são as pegadinhas clássicas de prova neste assunto?',
-  'Monta um mnemônico para eu decorar isso.'
+  'O que é feedback negativo?',
+  'Qual a diferença entre acidose metabólica e respiratória?',
+  'Para que serve o surfactante?',
+  'O que são discos intercalares?',
+  'Como o ADH age no rim?'
 ];
 
-function todasAulas(){
-  const out = [];
+/* Palavras curtas e conectivos não distinguem um trecho do outro. */
+const VAZIAS = new Set(('a o as os um uma uns umas de do da dos das em no na nos nas por para com sem sob sobre '
+  + 'e ou mas que se ao aos as à às pelo pela pelos pelas entre ate até como qual quais quando onde porque pq '
+  + 'e eh é sao são ser estar tem tem ha há seu sua seus suas este esta isso isto esse essa aquele aquela '
+  + 'mais menos muito pouco todo toda todos todas outro outra qualquer cada me te lhe nos vos lhes eu voce você '
+  + 'o que oque explica explique fala diz me diga significa serve funciona acontece').split(/\s+/));
+
+const palavras = t => norm(t).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !VAZIAS.has(w));
+
+/* Índice montado uma vez, na primeira pergunta: um registro por seção. */
+function montarIndice(){
+  if(INDICE) return INDICE;
+  INDICE = [];
   MATS.forEach(k => MATERIAL[k].aulas.forEach(a => {
-    if(!a.incompleto && a.secoes.length) out.push({k, slug:a.slug, rot:MATERIAL[k].nome + ' · ' + a.titulo});
+    if(a.prova) return;
+    a.secoes.forEach(s => {
+      const partes = [];
+      (s.b || []).forEach(b => {
+        if(b.t === 'p') partes.push(b.x);
+        else if(b.t === 'ul') b.x.forEach(i => partes.push('• ' + i));
+      });
+      const corpo = partes.join('\n');
+      if(corpo.length < 30) return;
+      const cheio = (s.h ? s.h + '. ' : '') + corpo;
+      const freq = {};
+      palavras(cheio).forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+      INDICE.push({
+        m: k, slug: a.slug, aula: a.titulo, materia: MATERIAL[k].nome,
+        h: s.h, p: s.p, partes, freq,
+        tit: new Set(palavras((s.h || '') + ' ' + a.titulo)),
+        tam: Object.keys(freq).length || 1
+      });
+    });
   }));
-  return out;
+  return INDICE;
 }
 
-function textoDaAula(k, slug){
-  const a = aulaDe(k, slug);
-  if(!a) return '';
-  const L = [`MATÉRIA: ${MATERIAL[k].nome}`, `AULA: ${a.titulo}`, ''];
-  a.secoes.forEach(s => {
-    if(s.h) L.push('\n## ' + s.h);
-    (s.b || []).forEach(b => {
-      if(b.t === 'p') L.push(b.x);
-      else if(b.t === 'ul') b.x.forEach(i => L.push('- ' + i));
+function buscar(pergunta){
+  const termos = palavras(pergunta);
+  if(!termos.length) return [];
+  const idx = montarIndice();
+
+  // Quantas seções contêm cada termo: o que aparece em tudo vale menos.
+  const docs = {};
+  termos.forEach(t => { docs[t] = idx.filter(r => r.freq[t]).length || 1; });
+
+  const notas = idx.map(r => {
+    let nota = 0, achados = 0;
+    termos.forEach(t => {
+      const f = r.freq[t];
+      if(!f) return;
+      achados++;
+      const raro = Math.log(1 + idx.length / docs[t]);
+      nota += raro * (1 + Math.log(f));
+      if(r.tit.has(t)) nota += raro * 1.6;   // bater no título vale mais
     });
+    // exigir cobertura: um trecho que só pega uma palavra de cinco não serve
+    const cobertura = achados / termos.length;
+    return {r, nota: nota * (0.35 + cobertura), achados};
   });
-  return L.join('\n').slice(0, 24000);
+
+  const min = Math.min(2, termos.length);
+  return notas.filter(x => x.achados >= min && x.nota > 0)
+              .sort((a, b) => b.nota - a.nota)
+              .slice(0, 4);
+}
+
+/* Dos parágrafos da seção, devolve os que mais falam dos termos buscados. */
+function melhoresTrechos(reg, termos, max){
+  const marc = reg.partes.map(t => {
+    const ws = new Set(palavras(t));
+    return {t, n: termos.filter(x => ws.has(x)).length};
+  });
+  const bons = marc.filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, max);
+  return (bons.length ? bons : marc.slice(0, max)).map(x => x.t);
+}
+
+function realcar(txt, termos){
+  let h = esc(txt);
+  const uniq = [...new Set(termos)].filter(t => t.length > 3);
+  uniq.forEach(t => {
+    // casa a palavra mesmo acentuada, comparando sem acento
+    h = h.replace(new RegExp('\\b[\\wÀ-ÿ]{' + t.length + ',' + (t.length + 3) + '}\\b', 'g'),
+      m => norm(m).startsWith(t) ? '<mark>' + m + '</mark>' : m);
+  });
+  return h;
+}
+
+function responder(txt){
+  historico.push({de:'me', txt});
+  const termos = palavras(txt);
+  let achados = buscar(txt);
+  if(escopo !== 'tudo') {
+    const so = achados.filter(x => x.r.m === escopo);
+    if(so.length) achados = so;
+  }
+
+  if(!achados.length){
+    historico.push({de:'site', vazio:true, termos});
+  } else {
+    historico.push({de:'site', termos, blocos: achados.map(x => ({
+      reg: x.r, trechos: melhoresTrechos(x.r, termos, 3)
+    }))});
+  }
+  pintar();
+}
+
+function respostaHtml(h){
+  if(h.vazio){
+    return `<div class="bub"><p>Não encontrei nada sobre <b>${esc(h.termos.join(', '))}</b> no material do site.</p>
+      <p class="ask-tip">Tente outras palavras — a busca procura os termos exatos dentro do texto das aulas. Se o assunto não estava nos slides, ele não está aqui.</p></div>`;
+  }
+  const cartoes = h.blocos.map(b => {
+    const r = b.reg;
+    const trechos = b.trechos.map(t => `<p>${realcar(t, h.termos)}</p>`).join('');
+    return `<div class="achado">
+      <div class="achado-top">
+        <span class="achado-mat">${esc(r.materia)}</span>
+        <span class="achado-pag">p.${r.p}</span>
+      </div>
+      ${r.h ? `<h4>${esc(r.h)}</h4>` : ''}
+      ${trechos}
+      <button class="achado-ir" data-ir='${JSON.stringify({v:'aula', m:r.m, a:r.slug, aba:'conteudo'})}'>Abrir ${esc(r.aula)} →</button>
+    </div>`;
+  }).join('');
+  return `<div class="bub"><p class="ask-lead">Encontrei ${h.blocos.length} trecho${h.blocos.length > 1 ? 's' : ''} no material:</p>${cartoes}</div>`;
 }
 
 function viewPerguntar(){
-  const lista = todasAulas();
-  if(!escopo && lista.length) escopo = lista[0].k + '/' + lista[0].slug;
   return `<div class="view wrap ask-wrap">
     <div class="ask-head">
       <span class="kicker">Tira-dúvidas</span>
-      <h1>Pergunte, que eu explico com o material da aula.</h1>
-      <p>Escolha a aula para dar contexto e pergunte em português. É um recurso extra — se ele não estiver disponível na sua visualização, todo o resto do site continua funcionando.</p>
+      <h1>Pergunte, que eu procuro no material.</h1>
+      <p>Esta busca lê o texto das ${MATS.reduce((s, k) => s + MATERIAL[k].aulas.length, 0)} aulas do site e devolve os trechos que respondem à sua pergunta, com o caminho para a aula de origem. Funciona sem internet e sem inteligência artificial: o que aparece aqui está escrito no material da sua UC.</p>
       <div class="scope">
-        <span class="lab">Contexto</span>
-        <select id="escopo" aria-label="Aula de contexto">
-          ${lista.map(a => `<option value="${a.k}/${a.slug}"${escopo === a.k + '/' + a.slug ? ' selected' : ''}>${esc(a.rot)}</option>`).join('')}
+        <span class="lab">Procurar em</span>
+        <select id="escopo" aria-label="Onde procurar">
+          <option value="tudo">Todas as matérias</option>
+          ${MATS.map(k => `<option value="${k}"${escopo === k ? ' selected' : ''}>${esc(MATERIAL[k].nome)}</option>`).join('')}
         </select>
       </div>
     </div>
-    <div id="askOff"></div>
     <div class="chat">
       <div class="msgs" id="msgs">${historico.length ? historico.map(balao).join('') : balaoVazio()}</div>
       <form class="composer" id="askForm">
-        <textarea id="askIn" rows="1" placeholder="Ex.: por que a PaCO₂ manda mais na ventilação do que a PaO₂?" aria-label="Sua pergunta"></textarea>
-        <button class="send" type="submit" aria-label="Enviar pergunta">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 5l7 7-7 7"/></svg>
+        <textarea id="askIn" rows="1" placeholder="Ex.: o que é feedback negativo?" aria-label="Sua pergunta"></textarea>
+        <button class="send" type="submit" aria-label="Buscar">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
         </button>
       </form>
     </div>
@@ -562,98 +764,26 @@ function viewPerguntar(){
 const balaoVazio = () => `<div class="ask-empty"><p>Comece por uma destas, ou escreva a sua:</p>
   <div class="sugg">${SUGESTOES.map(s => `<button data-sug="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`;
 
-const balao = h => `<div class="msg ${h.de}"><span class="who">${h.de === 'me' ? 'Você' : 'Homeostudy'}</span>
-  <div class="bub">${h.de === 'me' ? esc(h.txt) : md(h.txt)}</div></div>`;
+const balao = h => h.de === 'me'
+  ? `<div class="msg me"><span class="who">Você</span><div class="bub">${esc(h.txt)}</div></div>`
+  : `<div class="msg ai"><span class="who">Material da UC</span>${respostaHtml(h)}</div>`;
 
-function md(t){
-  const linhas = esc(t).split('\n');
-  let html = '', lista = false;
-  const inline = s => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>');
-  linhas.forEach(l => {
-    const x = l.trim();
-    if(/^[-*•]\s+/.test(x)){ if(!lista){ html += '<ul>'; lista = true; } html += '<li>' + inline(x.replace(/^[-*•]\s+/, '')) + '</li>'; return; }
-    if(lista){ html += '</ul>'; lista = false; }
-    if(!x) return;
-    html += /^#{1,4}\s/.test(x) ? '<h4>' + inline(x.replace(/^#{1,4}\s/, '')) + '</h4>' : '<p>' + inline(x) + '</p>';
-  });
-  if(lista) html += '</ul>';
-  return html || '<p></p>';
-}
-
-async function garantirSample(){
-  if(tentado) return sampleNS;
-  tentado = true;
-  try { sampleNS = await claude.use('sample'); } catch (e) { sampleNS = null; }
-  return sampleNS;
-}
-
-const NO_CLAUDE = 'https://claude.ai/code/artifact/6d80adce-8140-4c7a-8b4f-6122e3a0b815';
-
-function offline(msg){
-  const el = document.getElementById('askOff');
-  if(!el) return;
-  // Fora do claude.ai (GitHub Pages, arquivo local) não existe IA nenhuma para
-  // chamar — nesse caso vale mandar quem quiser o tira-dúvidas para a versão
-  // publicada, onde ele funciona.
-  const fora = typeof claude === 'undefined';
-  const extra = fora
-    ? ` <a href="${NO_CLAUDE}">Abra a versão no claude.ai</a> se quiser usá-lo.`
-    : '';
-  el.innerHTML = `<div class="ask-off"><b>O tira-dúvidas não está disponível aqui</b>`
-    + `<p>${esc(msg)}${extra} Todo o resto do site — conteúdo, figuras, exercícios`
-    + ` com dica e correção — funciona normalmente, sem login.</p></div>`;
-}
-
-async function perguntar(txt){
-  const ns = await garantirSample();
-  if(!ns){ offline('Ele precisa da IA da Claude, que só roda na versão publicada lá e com a permissão de quem abre a página.'); return; }
-  const [k, slug] = (escopo || '').split('/');
-  const a = aulaDe(k, slug);
-  historico.push({de:'me', txt}, {de:'ai', txt:'…'});
-  pintar(true);
-
-  const prompt = [
-    'Você é um monitor de fisiologia de um grupo de estudos de medicina no Brasil. Responda SEMPRE em português do Brasil.',
-    'Use o material abaixo como base principal. Se a pergunta sair do material, responda mesmo assim, mas avise em uma frase que aquilo não estava no conteúdo da aula.',
-    'Estilo: direto e didático. Use **negrito** nos termos-chave, listas com "-" quando ajudar e títulos com "##" só em respostas longas. Cite valores e fórmulas quando forem relevantes. No máximo ~350 palavras, salvo se pedirem mais.',
-    'Se pedirem questões, escreva enunciado e alternativas e só dê o gabarito comentado depois — a menos que peçam junto.',
-    '', '=== MATERIAL DA AULA ===', textoDaAula(k, slug), '=== FIM ===', '',
-    'PERGUNTA: ' + txt
-  ].join('\n');
-
-  const i = historico.length - 1;
-  try {
-    const r = await ns(prompt, {modelTier:'default', onText:({text}) => { historico[i].txt = text; pintar(false); }});
-    historico[i].txt = r.text || historico[i].txt;
-  } catch (err) {
-    if(err && err.text) historico[i].txt = err.text;
-    else {
-      historico.splice(i, 1);
-      offline(err && err.code === 'rate_limited' ? 'Muitas perguntas seguidas — espere alguns segundos.' : 'Não consegui gerar a resposta agora.');
-    }
-  }
-  pintar(false);
-}
-
-function pintar(carregando){
+function pintar(){
   const cx = document.getElementById('msgs');
   if(!cx) return;
-  cx.innerHTML = historico.map((h, i) =>
-    carregando && i === historico.length - 1
-      ? '<div class="msg ai"><span class="who">Homeostudy</span><div class="bub"><span class="dots"><i></i><i></i><i></i></span></div></div>'
-      : balao(h)).join('');
+  cx.innerHTML = historico.map(balao).join('');
   cx.scrollTop = cx.scrollHeight;
 }
 
 main.addEventListener('change', e => { if(e.target.id === 'escopo') escopo = e.target.value; });
-main.addEventListener('click', e => { const g = e.target.closest('[data-sug]'); if(g) perguntar(g.dataset.sug); });
+main.addEventListener('click', e => { const g = e.target.closest('[data-sug]'); if(g) responder(g.dataset.sug); });
 main.addEventListener('submit', e => {
   if(e.target.id !== 'askForm') return;
   e.preventDefault();
   const inp = document.getElementById('askIn'), v = inp.value.trim();
   if(!v) return;
   inp.value = ''; inp.style.height = 'auto';
-  perguntar(v);
+  responder(v);
 });
 main.addEventListener('input', e => {
   if(e.target.id !== 'askIn') return;
@@ -711,6 +841,7 @@ function render(){
   else if(state.v === 'perguntar') main.innerHTML = viewPerguntar();
   else if(state.v === 'materia') main.innerHTML = viewMateria();
   else if(state.v === 'simulado') main.innerHTML = viewSimulado();
+  else if(state.v === 'mapa') main.innerHTML = viewMapa();
   else main.innerHTML = viewAula();
 
   scrollTo({top:0, behavior:'instant'});
@@ -726,9 +857,7 @@ function render(){
     alvos.forEach(a => io.observe(a));
   }
 
-  if(state.v === 'perguntar'){
-    garantirSample().then(ns => { if(!ns) offline('Ele precisa da IA da Claude, que só roda na versão publicada lá e com a permissão de quem abre a página.'); });
-  }
+  if(state.v === 'mapa') ligarMapa();
 }
 
 lerHash();

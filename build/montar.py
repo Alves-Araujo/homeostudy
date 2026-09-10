@@ -31,8 +31,10 @@ LARG_SCAN  = 820             # PDFs que são só imagem: renderiza a página
 QUAL_SCAN  = 66
 MAX_SCAN   = 16              # teto de páginas renderizadas por PDF escaneado
 
-# arquivos que não são material de estudo
-IGNORAR = {'Programação UC IV', 'Puran'}
+# arquivos que não são material de estudo.
+# 'Grandes Grupos' é o download do Canva que salvou só a capa: 2 páginas, zero
+# texto — aparecia na lista como uma aula que não existe.
+IGNORAR = {'Programação UC IV', 'Puran', 'Grandes Grupos'}
 
 # nomes de arquivo genéricos → título real da aula, tema na grade e avisos
 TITULOS = {
@@ -74,7 +76,6 @@ TITULOS = {
  'Homeostase (1)':               ('Homeostase', 'PDF incompleto'),
  'Sistema Cardiovascular (3)':   ('Sistema Cardiovascular', 'PDF incompleto'),
  'Sistemas respiratório, renal e digestório (4)': ('Sistemas Respiratório, Renal e Digestório', 'PDF incompleto'),
- 'Grandes Grupos':               ('Grandes Grupos', 'PDF incompleto'),
 }
 
 
@@ -88,6 +89,27 @@ def slug(s):
 LIXO = re.compile(r'^(?:\d{1,3}|\d{2}/\d{2}/\d{4}|[ivxIVX]{1,5}|[-–—•·]+)$')
 MARCADOR = re.compile(r'^[•·▪◦‣●○–-]\s+')
 FIM_FRASE = re.compile(r'[.:;!?]$')
+
+# uma linha de alternativas ("A) 1  B) 2  C) 3") ou um enunciado numerado
+ALTERNATIVA = re.compile(r'^[A-Ea-e]\)\s')
+ENUNCIADO = re.compile(r'^Quest(ão|ao)\s*\d+', re.I)
+# começa em minúscula: é continuação da linha anterior, não frase nova
+CONTINUA = re.compile(r'^[a-zàáâãéêíóôõúç(]')
+
+
+def parece_titulo_em_caixa_alta(txt):
+    """`str.isupper()` mente para fórmulas e gabaritos.
+
+    "CO₂ + H₂O ⇌ H₂CO₃" e "A) 1  B) 2  C) 3" respondem True porque dígitos,
+    parênteses e subscritos não têm caixa — só as poucas letras contam. Um
+    título de verdade é majoritariamente feito de letras.
+    """
+    if not txt.isupper() or len(txt) <= 3:
+        return False
+    if ALTERNATIVA.match(txt):
+        return False
+    letras = sum(c.isalpha() for c in txt)
+    return letras >= 4 and letras / len(txt) >= 0.55
 
 
 def blocos_brutos(pg):
@@ -155,13 +177,32 @@ def unir_linhas(linhas):
         if saida and not marcador:
             ant = saida[-1]
             mesmo_tam = abs(ant['tam'] - ln['tam']) < 0.6
-            # continuação de linha: vale tanto para parágrafo quanto para
-            # um marcador cujo texto vazou para a linha seguinte
-            if not FIM_FRASE.search(ant['x']) and mesmo_tam:
+            # Dentro de um bloco, uma linha que começa em minúscula é sempre a
+            # continuação da anterior — mesmo em corpo diferente, como no
+            # "Questão 1 —" em negrito seguido do enunciado em tamanho normal.
+            continuacao = mesmo_tam or CONTINUA.match(texto)
+            if not FIM_FRASE.search(ant['x']) and continuacao:
                 ant['x'] = (ant['x'] + ' ' + texto).strip()
                 continue
         saida.append({'m': marcador, 'x': texto, 'tam': ln['tam']})
     return saida
+
+
+def eh_lista_de_exercicios(secoes):
+    """O PDF é a própria prova, não material de estudo?
+
+    Reconhece pelos enunciados numerados somados às linhas de alternativas —
+    dois ou três "Questão N" perdidos no meio de uma aula não bastam.
+    """
+    enunciados = alternativas = 0
+    for sec in secoes:
+        for bl in sec['b']:
+            for txt in (bl['x'] if bl['t'] == 'ul' else [bl['x']]):
+                if ENUNCIADO.match(txt):
+                    enunciados += 1
+                if ALTERNATIVA.match(txt):
+                    alternativas += 1
+    return enunciados >= 4 and alternativas >= enunciados
 
 
 def secoes_da_pagina(pg):
@@ -178,11 +219,20 @@ def secoes_da_pagina(pg):
         itens = unir_linhas(bl['linhas'])
         if not itens:
             continue
-        # frase que vazou de um bloco para o seguinte, na mesma coluna
-        if (anterior and atual['b'] and atual['b'][-1]['t'] == 'p'
-                and not itens[0]['m'] and abs(bl['x0'] - anterior['x0']) < 8
-                and abs(bl['tam'] - anterior['tam']) < 0.6
-                and not FIM_FRASE.search(atual['b'][-1]['x'])):
+        # Frase que vazou de um bloco para o seguinte, na mesma coluna.
+        # A margem de x0 é estreita para rótulos soltos de diagrama (que não
+        # devem virar frase) e larga quando o texto anterior já é uma frase
+        # longa cortada no meio — aí a continuação é praticamente certa.
+        if anterior and atual['b'] and atual['b'][-1]['t'] == 'p':
+            resto = atual['b'][-1]['x']
+            frase_longa = len(resto) >= 40 and CONTINUA.match(itens[0]['x'] or ' ')
+            margem = 30 if frase_longa else 8
+            vazou = (not itens[0]['m'] and abs(bl['x0'] - anterior['x0']) < margem
+                     and abs(bl['tam'] - anterior['tam']) < 0.6
+                     and not FIM_FRASE.search(resto))
+        else:
+            vazou = False
+        if vazou:
             atual['b'][-1]['x'] = (atual['b'][-1]['x'] + ' ' + itens[0]['x']).strip()
             itens = itens[1:]
             anterior = bl
@@ -191,10 +241,12 @@ def secoes_da_pagina(pg):
         anterior = bl
         primeiro = itens[0]
         grande = bl['tam'] >= corpo * 1.14
-        caixa_alta = primeiro['x'].isupper() and len(primeiro['x']) > 3
+        caixa_alta = parece_titulo_em_caixa_alta(primeiro['x'])
         curto = len(primeiro['x']) <= 96
+        # gabarito e enunciado de questão nunca são título de seção
+        de_prova = ALTERNATIVA.match(primeiro['x']) or ENUNCIADO.match(primeiro['x'])
         # o bloco começa com título quando a primeira linha se destaca
-        if (not primeiro['m'] and curto and (grande or caixa_alta)
+        if (not primeiro['m'] and curto and (grande or caixa_alta) and not de_prova
                 and not FIM_FRASE.search(primeiro['x'].rstrip(':'))):
             fechar()
             atual = {'h': primeiro['x'].rstrip(' :'), 'b': []}
@@ -415,9 +467,14 @@ def main():
             incompleto = tema == 'PDF incompleto' and not secoes
             if secoes and tema == 'PDF incompleto':
                 tema = 'Transcrição do grupo'
-            aulas.append({'slug': sl, 'titulo': titulo, 'arquivo': nome + '.pdf', 'tema': tema,
-                          'paginas': doc.page_count, 'secoes': secoes, 'figuras': figs,
-                          'incompleto': incompleto})
+            aula = {'slug': sl, 'titulo': titulo, 'arquivo': nome + '.pdf', 'tema': tema,
+                    'paginas': doc.page_count, 'secoes': secoes, 'figuras': figs,
+                    'incompleto': incompleto}
+            if eh_lista_de_exercicios(secoes):
+                # o PDF é a própria prova: mostrar como "conteúdo" só repete as
+                # questões picotadas, então o site manda para a aba Exercícios
+                aula['prova'] = True
+            aulas.append(aula)
             kb = sum(f['kb'] for f in figs)
             resumo.append((pasta, nome, doc.page_count, len(secoes), len(figs), kb))
             print(f'{pasta[:15]:<16} {nome[:42]:<44} {doc.page_count:>3}p {len(secoes):>4} seções {len(figs):>3} figs {kb:>7.0f} KB')

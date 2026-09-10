@@ -10,6 +10,7 @@ cat 01-shell.html \
     dados-histologia.js \
     dados-grandes-grupos.js \
     dados-bioquimica.js \
+    mapas.js \
     exercicios-1.js \
     exercicios-2.js \
     exercicios-3.js \

@@ -325,6 +325,8 @@ footer{border-top:1px solid var(--line); background:var(--surface); margin-top:1
 .foot p{font-size:13.5px; color:var(--ink-3); max-width:70ch; line-height:1.6}
 .foot .mark{font-family:var(--display); font-weight:800; font-size:15px; letter-spacing:-.03em; color:var(--ink-2)}
 .foot .mark em{font-style:normal; color:var(--rosa)}
+
+/* ─── mapa mental ────────────────────────────────────────────────────── */
 </style>
 
 <header class="top">
@@ -367,4 +369,68 @@ footer{border-top:1px solid var(--line); background:var(--surface); margin-top:1
 .simcard:hover .go svg{transform:translateX(4px)}
 .simcard .go svg{transition:transform .25s}
 @media (max-width:640px){.simcard{grid-template-columns:1fr; gap:12px} .simcard .ico{display:none}}
+
+/* ─── mapa mental da matéria ─────────────────────────────────────────── */
+.mm-page{padding-block:34px 60px; position:relative}
+.mm-mapa{display:grid; grid-template-columns:1fr auto 1fr; gap:26px; align-items:center}
+.mm-col{display:grid; gap:22px}
+.mm-centro{font-family:var(--display); text-align:center; color:#fff;
+  background:linear-gradient(135deg,var(--rosa),var(--azul)); padding:22px 26px;
+  border-radius:26px 26px 26px 6px; box-shadow:var(--shadow-lift); max-width:220px}
+.mm-centro b{display:block; font-size:23px; font-weight:800; line-height:1.15; letter-spacing:-.02em}
+.mm-centro span{display:block; margin-top:6px; font-family:var(--mono); font-size:10px;
+  letter-spacing:.12em; text-transform:uppercase; opacity:.82}
+
+.mm-ramo{display:grid; gap:9px}
+.mm-esq{justify-items:end; text-align:right}
+.mm-dir{justify-items:start}
+.mm-n1, .mm-n2{cursor:help; transition:transform .2s, box-shadow .2s, border-color .2s}
+.mm-n1{font-family:var(--display); font-weight:700; font-size:15px; color:#fff;
+  background:var(--azul); padding:9px 16px; border-radius:10px; box-shadow:var(--shadow); max-width:100%}
+.mm-ramo:nth-child(2n) .mm-n1{background:var(--ok)}
+.mm-ramo:nth-child(3n) .mm-n1{background:var(--crit)}
+.mm-n1:hover, .mm-n1:focus-visible{transform:scale(1.05); box-shadow:var(--shadow-lift)}
+/* traço curto ligando cada ramo ao centro, como as setas do mapa desenhado */
+.mm-n1{position:relative}
+.mm-esq .mm-n1::after, .mm-dir .mm-n1::before{content:""; position:absolute; top:50%;
+  width:20px; height:2px; background:var(--line-2); border-radius:2px}
+.mm-esq .mm-n1::after{left:100%; margin-left:4px}
+.mm-dir .mm-n1::before{right:100%; margin-right:4px}
+@media (max-width:860px){.mm-esq .mm-n1::after, .mm-dir .mm-n1::before{display:none}}
+.mm-filhos{display:flex; flex-wrap:wrap; gap:7px; max-width:340px}
+.mm-esq .mm-filhos{justify-content:flex-end}
+.mm-n2{font-size:14px; color:var(--ink-2); background:var(--surface);
+  border:1.5px solid var(--line-2); padding:6px 15px; border-radius:999px; line-height:1.35}
+.mm-n2:hover, .mm-n2:focus-visible{border-color:var(--rosa); color:var(--rosa-esc);
+  transform:translateY(-2px); box-shadow:var(--shadow)}
+
+.mm-dica{position:absolute; z-index:30; max-width:330px; background:var(--noite);
+  color:var(--noite-ink); font-size:14.5px; line-height:1.5; padding:12px 16px;
+  border-radius:12px; box-shadow:var(--shadow-lift); pointer-events:none;
+  animation:unfold .18s cubic-bezier(.22,.9,.28,1) both}
+@media (max-width:860px){
+  .mm-mapa{grid-template-columns:1fr; gap:20px}
+  .mm-centro{max-width:none; justify-self:stretch; border-radius:18px}
+  .mm-esq, .mm-dir{justify-items:start; text-align:left}
+  .mm-esq .mm-filhos{justify-content:flex-start}
+  .mm-dica{max-width:calc(100vw - 60px)}
+}
+.mapcard .ico{background:var(--azul)}
+.mapcard .go{color:var(--azul-esc)}
+
+/* ─── resultados da busca do tira-dúvidas ────────────────────────────── */
+.ask-lead{font-size:14px; color:var(--ink-3); margin-bottom:10px}
+.ask-tip{font-size:14px; color:var(--ink-3); margin-top:8px}
+.achado{background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--rosa);
+  border-radius:11px; padding:14px 17px; margin-bottom:10px}
+.achado-top{display:flex; gap:10px; align-items:baseline; margin-bottom:5px}
+.achado-mat{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--rosa)}
+.achado-pag{font-family:var(--mono); font-size:10px; color:var(--ink-3); margin-left:auto}
+.achado h4{font-size:15.5px; margin-bottom:6px; color:var(--ink)}
+.achado p{font-size:15px; color:var(--ink-2); line-height:1.55; margin-bottom:6px}
+.achado mark{background:var(--rosa-wash); color:var(--rosa-esc); border-radius:3px; padding:0 2px}
+.achado-ir{font-family:var(--display); font-weight:600; font-size:13.5px; color:var(--azul);
+  margin-top:4px; transition:gap .2s}
+.achado-ir:hover{color:var(--azul-esc); text-decoration:underline}
+
 </style>
