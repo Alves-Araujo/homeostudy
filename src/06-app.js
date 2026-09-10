@@ -587,14 +587,26 @@ async function garantirSample(){
   return sampleNS;
 }
 
+const NO_CLAUDE = 'https://claude.ai/code/artifact/6d80adce-8140-4c7a-8b4f-6122e3a0b815';
+
 function offline(msg){
   const el = document.getElementById('askOff');
-  if(el) el.innerHTML = `<div class="ask-off"><b>O tira-dúvidas não está disponível aqui</b><p>${esc(msg)} Todo o resto do site — conteúdo, figuras, exercícios com dica e correção — funciona normalmente, sem login.</p></div>`;
+  if(!el) return;
+  // Fora do claude.ai (GitHub Pages, arquivo local) não existe IA nenhuma para
+  // chamar — nesse caso vale mandar quem quiser o tira-dúvidas para a versão
+  // publicada, onde ele funciona.
+  const fora = typeof claude === 'undefined';
+  const extra = fora
+    ? ` <a href="${NO_CLAUDE}">Abra a versão no claude.ai</a> se quiser usá-lo.`
+    : '';
+  el.innerHTML = `<div class="ask-off"><b>O tira-dúvidas não está disponível aqui</b>`
+    + `<p>${esc(msg)}${extra} Todo o resto do site — conteúdo, figuras, exercícios`
+    + ` com dica e correção — funciona normalmente, sem login.</p></div>`;
 }
 
 async function perguntar(txt){
   const ns = await garantirSample();
-  if(!ns){ offline('Ele precisa rodar dentro da página publicada, com a permissão concedida por quem abre.'); return; }
+  if(!ns){ offline('Ele precisa da IA da Claude, que só roda na versão publicada lá e com a permissão de quem abre a página.'); return; }
   const [k, slug] = (escopo || '').split('/');
   const a = aulaDe(k, slug);
   historico.push({de:'me', txt}, {de:'ai', txt:'…'});
@@ -715,7 +727,7 @@ function render(){
   }
 
   if(state.v === 'perguntar'){
-    garantirSample().then(ns => { if(!ns) offline('Ele precisa rodar dentro da página publicada, com a permissão concedida por quem abre.'); });
+    garantirSample().then(ns => { if(!ns) offline('Ele precisa da IA da Claude, que só roda na versão publicada lá e com a permissão de quem abre a página.'); });
   }
 }
 
