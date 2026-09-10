@@ -32,6 +32,43 @@ let prog = {};
 try { prog = JSON.parse(localStorage.getItem(CHAVE) || '{}'); } catch (e) { prog = {}; }
 function salvar(){ try { localStorage.setItem(CHAVE, JSON.stringify(prog)); } catch (e) {} }
 
+/* ─── progresso geral, no anel em volta do símbolo ───────────────────── */
+let TOTAL_Q = 0;
+function totalQuestoes(){
+  if(TOTAL_Q) return TOTAL_Q;
+  Object.values(window.EX || {}).forEach(e => {
+    TOTAL_Q += (e.material || []).length + (e.internet || []).length + (e.ia || []).length;
+  });
+  Object.values(window.SIM || {}).forEach(a => { TOTAL_Q += a.length; });
+  return TOTAL_Q;
+}
+
+function pintarAnel(){
+  const anel = document.getElementById('brandRing'), tip = document.getElementById('brandTip');
+  if(!anel) return;
+  const total = totalQuestoes();
+  // uma questão só conta uma vez; "Recomeçar" zera a chave e o anel volta
+  const feitas = Object.values(prog).reduce((s, p) => s + (p.feitas || 0), 0);
+  const certas = Object.values(prog).reduce((s, p) => s + (p.certas || 0), 0);
+  const pct = total ? Math.min(100, feitas / total * 100) : 0;
+  anel.setAttribute('stroke-dasharray', pct.toFixed(1) + ' 100');
+  if(tip){
+    tip.textContent = feitas
+      ? `${feitas} de ${total} questões · ${certas} cert${certas === 1 ? 'a' : 'as'}`
+      : `${total} questões esperando você`;
+  }
+}
+
+/* ─── barra de leitura sob o cabeçalho ───────────────────────────────── */
+function pintarLeitura(){
+  const bar = document.getElementById('lendoBar');
+  if(!bar) return;
+  const alto = document.documentElement.scrollHeight - innerHeight;
+  bar.style.width = (alto > 40 ? Math.min(100, scrollY / alto * 100) : 0) + '%';
+}
+addEventListener('scroll', pintarLeitura, {passive:true});
+addEventListener('resize', pintarLeitura);
+
 /* ─── tema ───────────────────────────────────────────────────────────── */
 const root = document.documentElement;
 document.getElementById('themeBtn').addEventListener('click', () => {
@@ -518,6 +555,7 @@ function pontuar(chave, certo){
   const p = prog[chave] = prog[chave] || {certas:0, feitas:0};
   p.feitas++; if(certo) p.certas++;
   salvar();
+  pintarAnel();
   const barra = document.querySelector(`[data-score="${chave}"]`);
   if(barra){
     barra.querySelector('[data-sc-c]').textContent = p.certas;
@@ -883,6 +921,8 @@ function render(){
 
   scrollTo({top:0, behavior:'instant'});
   tracado();
+  pintarAnel();
+  pintarLeitura();
 
   const alvos = main.querySelectorAll('.block-h');
   const links = main.querySelectorAll('[data-toc]');
