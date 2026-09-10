@@ -841,7 +841,7 @@ function viewPerguntar(){
     <div class="chat">
       <div class="msgs" id="msgs">${historico.length ? historico.map(balao).join('') : balaoVazio()}</div>
       <form class="composer" id="askForm">
-        <textarea id="askIn" rows="1" placeholder="Ex.: o que é feedback negativo?" aria-label="Sua pergunta"></textarea>
+        <textarea id="askIn" rows="1" placeholder="Sua dúvida…" aria-label="Sua pergunta"></textarea>
         <button class="send" type="submit" aria-label="Buscar">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
         </button>

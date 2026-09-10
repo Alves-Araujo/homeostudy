@@ -1,4 +1,8 @@
 <meta charset="utf-8">
+<!-- Sem isto o celular renderiza a página como se a tela tivesse 980px e
+     encolhe tudo. O claude.ai injeta a tag sozinho; o GitHub Pages serve o
+     arquivo como está, então ela precisa morar aqui. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Homeostudy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -459,5 +463,61 @@ footer{border-top:1px solid var(--line); background:var(--surface); margin-top:1
 .achado-ir{font-family:var(--display); font-weight:600; font-size:13.5px; color:var(--azul);
   margin-top:4px; transition:gap .2s}
 .achado-ir:hover{color:var(--azul-esc); text-decoration:underline}
+
+
+/* ═══ CELULAR ══════════════════════════════════════════════════════════
+   Ajustes que só valem em tela estreita. O resto do site já era fluido;
+   o que faltava era o cabeçalho, que amassava marca e menu na mesma
+   linha, e alvos de toque grandes o bastante para o dedo.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width:700px){
+  /* cabeçalho em duas faixas: marca em cima, menu rolando embaixo */
+  .top-in{height:auto; flex-wrap:wrap; padding-block:9px; gap:10px}
+  .brand{order:1}
+  .theme-btn{order:2; margin-left:auto}
+  .nav{order:3; flex-basis:100%; margin-left:0; padding:0 0 2px;
+       scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch}
+  .nav button{scroll-snap-align:start; padding:9px 14px; font-size:13.5px}
+  .brand-tip{left:auto; right:0}
+
+  /* o dedo precisa de área: nada clicável abaixo de ~40px */
+  .pills button, .mm-n2, .sugg button, .btn, .alt, .achado-ir{min-height:40px}
+  .theme-btn{width:42px; height:42px}
+  .score button{min-height:40px; padding-inline:16px}
+  /* a migalha de pão são links de verdade: precisam de área de toque */
+  .mhead .crumb{gap:4px}
+  .mhead .crumb button{padding:9px 8px; margin:-9px -2px}
+  .pills button, .sugg button{display:inline-flex; align-items:center}
+  .mm-n2{display:inline-flex; align-items:center; padding-block:8px}
+  .alt{padding-block:13px}
+
+  /* o select do tira-dúvidas com menos de 16px faz o iOS dar zoom sozinho */
+  .scope select{font-size:16px; min-height:42px}
+  .composer textarea{min-height:56px; font-size:16px}
+  .send{width:52px; height:52px}
+  .resp{font-size:16px}
+
+  /* palavra comprida (nome de estrutura, fórmula) não pode furar a caixa */
+  .doc p, .doc li, .q-stem, .alt, .achado p, .msg .bub{overflow-wrap:break-word}
+
+  /* margens um pouco menores para ganhar linha de texto */
+  .wrap{padding:0 16px}
+  .sec{padding-block:34px}
+  .q{padding:17px 15px}
+  .hero-in{padding-block:38px 34px}
+}
+
+/* no mapa empilhado, o centro é a raiz: tem que vir antes dos ramos */
+@media (max-width:860px){
+  .mm-mapa{display:flex; flex-direction:column}
+  .mm-centro{order:-1; text-align:left}
+  .mm-col{display:grid; gap:20px}
+}
+
+/* telas bem estreitas: a marca escrita cede lugar ao menu */
+@media (max-width:380px){
+  .brand-name{font-size:17px}
+  .hero h1{font-size:31px}
+}
 
 </style>
