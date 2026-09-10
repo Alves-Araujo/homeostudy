@@ -1,5 +1,7 @@
 # Homeostudy
 
+**No ar em https://alves-araujo.github.io/homeostudy/**
+
 Site de estudo gerado a partir dos PDFs das aulas. Cada matéria é uma pasta na
 raiz do projeto; cada PDF dentro dela vira uma aula no site, com o texto e as
 figuras do próprio material, mais três blocos de exercícios. No fim da página de
@@ -41,7 +43,34 @@ com os PDFs ao lado do `build/`, e então rodar os dois comandos abaixo.
    sh src/build.sh            # junta os fontes → site.html
    ```
 
-3. Publique `site.html` como Artifact (mesma URL de sempre).
+3. Publique:
+
+   ```sh
+   sh src/publicar.sh         # envia o site para o GitHub Pages
+   ```
+
+## Onde o site fica publicado
+
+Em dois lugares, a partir do mesmo `site.html`:
+
+| endereço | quem abre | tira-dúvidas |
+|---|---|---|
+| [alves-araujo.github.io/homeostudy](https://alves-araujo.github.io/homeostudy/) | qualquer pessoa, sem login | não |
+| Artifact no claude.ai | quem tiver o link e estiver logado | sim |
+
+O tira-dúvidas depende da IA da Claude (`claude.use('sample')`), que só existe
+dentro do claude.ai. Fora dali o site detecta a ausência e mostra um link para a
+outra versão; todo o resto — conteúdo, figuras, exercícios, dicas, gabaritos e
+correção — roda offline, sem conta nenhuma.
+
+O GitHub Pages serve a branch `gh-pages`, que tem só o `index.html` montado. A
+`main` continua sendo o código. É o `src/publicar.sh` que cuida dessa separação:
+ele monta o commit da `gh-pages` com comandos de baixo nível do git, sem trocar
+a sua branch atual nem tocar nos arquivos que você está editando.
+
+Para atualizar o Artifact, peça ao Claude Code — precisa estar logado com a
+conta claude.ai (sem `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` no
+`~/.claude/settings.json`).
 
 O `montar.py` precisa de `pymupdf` e `pillow`:
 
@@ -65,7 +94,8 @@ Homeostudy/
 │   ├── exercicios-1..3.js  questões por aula (escritas à mão)
 │   ├── simulado-1..5.js    simulado de cada matéria, 30 questões cada
 │   ├── 06-app.js           navegação, quiz, correção e tira-dúvidas
-│   └── build.sh            junta tudo em site.html
+│   ├── build.sh            junta tudo em site.html
+│   └── publicar.sh         envia o site.html para o GitHub Pages
 └── site.html               arquivo publicado (não edite: é gerado)
 ```
 
